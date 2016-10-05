@@ -341,13 +341,15 @@ void makeP3PPM(PixData* pixData, int width, int height, char* filename){
 	fprintf(fh, "%d %d\n", width, height);
 	fprintf(fh, "255\n");
 	
+	// Writing P3 pixel data
     for(int j = 0; j< width*height; j++){
         fprintf(fh, "%d ", pixData[j].r);
         fprintf(fh, "%d ", pixData[j].g);
         fprintf(fh, "%d \n", pixData[j].b);
     }
 	
-    fclose(fh);//closing file handle
+	// Close file
+    fclose(fh);
 }
 
 // Finding where, if it exists, sphere intersection
@@ -377,14 +379,14 @@ double sphere_insxion(double* Ro, double* Rd, double rad, double* center ){
 
 
 double plane_insxion(double* Ro, double* Rd, double* normal, double* position){
-    //doing math
-    double dist = -(normal[0] * position[0] + normal[1] * position[1] + normal[2] * position[2]); // distance from origin to plane
+    // Mathematical functions as given by the Raycasting pdf
+    double dist = -(normal[0] * position[0] + normal[1] * position[1] + normal[2] * position[2]);
     double t = -(normal[0] * Ro[0] + normal[1] * Ro[1] + normal[2] * Ro[2] + dist) /
                 (normal[0] * Rd[0] + normal[1] * Rd[1] + normal[2] * Rd[2]);
 
     if (t > 0){ return t; }
 
-	// If there is no intersection
+	// If there is no intersection, return error code (-1)
     return -1;
 }
 
@@ -426,11 +428,11 @@ int errCheck(int args, char *argv[]){
 void raycast(Object* objects,char* picture_height,char* picture_width,char* output_file){
 
 	// Basic loop varibles
-    int j,y,k=0;
+    int j,y,index=0;
 	
 	// Initialization of the camera's center
-    double cx=0;
-    double cy=0;
+    double centerX=0;
+    double centerY=0;
 
 	// Goes through object array to find Camera
     for(j=0;j< sizeof(objects);j++){
@@ -438,27 +440,27 @@ void raycast(Object* objects,char* picture_height,char* picture_width,char* outp
     }
 
 	// Store the camera position
-    double h = objects[j].cam.height;
-    double w = objects[j].cam.width;
+    double camH = objects[j].cam.height;
+    double camW = objects[j].cam.width;
 	
 	// Store the desired picture height and width
-    int m = atoi(picture_height);
-    int n = atoi(picture_width);
+    int picH = atoi(picture_height);
+    int picW = atoi(picture_width);
 	
 	// Get the relative size of each pixel to be drawn
-    double pixheight =h/m;
-    double pixwidth =w/m;
+    double pixheight =camH/picH;
+    double pixwidth =camW/picH;
 
 	// Initialization of the pixel data for the ppm file to be drawn
-    PixData p[m*n];
+    PixData pixels[picH*picW];
 
-    for(int y=m;y>0;y--){
-        for (int x=0;x<n;x++){
+    for(int y=picH;y>0;y--){
+        for (int x=0;x<picW;x++){
 			// This will flip the picture as it looks upside down otherwise
             double Ro[3]={0,0,0};
-            double Rd[3] = { cx - (w/2) + pixwidth * (x + 0.5), cy - (h/2) + pixheight * (y + 0.5), 1 };
+            double Rd[3] = { centerX - (camW/2) + pixwidth * (x + 0.5), centerY - (camH/2) + pixheight * (y + 0.5), 1 };
             normalize(Rd);
-            double best_t=INFINITY;
+            double idealInsx=INFINITY;
             Object object;
 
             // Loop thru the object array
@@ -475,38 +477,39 @@ void raycast(Object* objects,char* picture_height,char* picture_width,char* outp
                     case 0:
                         break;
                     default:
-                        exit(-1);
+						fprintf(stderr, "Error: Not an accepted object type");
+                        exit(1);
                 }
 
-                if(t>0 && t<best_t){
-                    best_t=t;
+                if(t>0 && t<idealInsx){
+                    idealInsx=t;
                     object=objects[i];
                 }
             }
 
-			if(best_t > 0 && best_t != INFINITY){
+			if(idealInsx > 0 && idealInsx != INFINITY){
 				
 				if(object.objType==1){
-					p[k].r=(int)(object.sphere.color[0]*255);
-					p[k].g=(int)(object.sphere.color[1]*255);
-					p[k].b=(int)(object.sphere.color[2]*255);
+					pixels[index].r = (int)(object.sphere.color[0]*255);
+					pixels[index].g = (int)(object.sphere.color[1]*255);
+					pixels[index].b = (int)(object.sphere.color[2]*255);
 				}
 				if(object.objType==2){
-					p[k].r=(int)(object.plane.color[0]*255);
-					p[k].g=(int)(object.plane.color[1]*255);
-					p[k].b=(int)(object.plane.color[2]*255);
+					pixels[index].r = (int)(object.plane.color[0]*255);
+					pixels[index].g = (int)(object.plane.color[1]*255);
+					pixels[index].b = (int)(object.plane.color[2]*255);
 				}
 			} else{
-				
-				p[k].r=0;
-				p[k].g=0;
-				p[k].b=0;
+				// If no intersection, paint black area
+				pixels[index].r = 0;
+				pixels[index].g = 0;
+				pixels[index].b = 0;
 			}
-            k++;
+            index++;
         }
     }
     //writing to ppm file
-    makeP3PPM(p,atoi(picture_height),atoi(picture_width),output_file);
+    makeP3PPM(pixels, atoi(picture_height), atoi(picture_width), output_file);
 }
 
 
