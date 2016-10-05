@@ -433,7 +433,41 @@ void raycast(Object* objects,char* picture_height,char* picture_width,char* outp
     makeP3PPM(p,atoi(picture_height),atoi(picture_width),output_file);
 }
 
-int main(int c, char** argv) {
+int errCheck(int args, char *argv[]){
+	
+	// Initial check to see if there are 3 input arguments on launch
+	if ((args != 5) || (strlen(argv[3]) <= 5) || (strlen(argv[4]) <= 4)) {
+		fprintf(stderr, "Error: Program requires usage: 'raycast width height input.json output.ppm'");
+		exit(1);
+	}
+
+	// Check the file extension of input and output files
+	char *extIn;
+	char *extOut;
+	if(strrchr(argv[3],'.') != NULL){
+		extIn = strrchr(argv[3],'.');
+	}
+	if(strrchr(argv[4],'.') != NULL){
+		extOut = strrchr(argv[4],'.');
+	}
+	
+	// Check to see if the inputfile is in .ppm format
+	if(strcmp(extIn, ".json") != 0){
+		printf("Error: Input file not a json");
+		exit(1);
+	}
+	
+	// Check to see if the outputfile is in .ppm format
+	if(strcmp(extOut, ".ppm") != 0){
+		printf("Error: Output file not a PPM");
+		exit(1);
+	}
+
+	return(0);
+}
+
+int main(int args, char** argv) {
+	errCheck(args, argv);
     Object objects[129];
     read_scene(argv[3],objects);
     raycast(objects,argv[1],argv[2],argv[4]);
