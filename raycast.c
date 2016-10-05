@@ -4,8 +4,33 @@
 #include <string.h>
 #include <ctype.h>
 
-/* 	
-
+/* 	Jesus Garcia
+	Project 2 - Raycast - 10/4/16
+	CS430 - Prof. Palmer
+	
+	"In this project you will write code to raycast mathematical primitives based on a scene input file
+	into a pixel buffer. You will then write the pixel buffer to a PPM formatted file using the code
+	you wrote in Project 1 (P3 or P6 format).
+	
+	Your program should be resistant to errors and should not segfault or produce undefined
+	behavior. If an error occurs, it should print a message to stderr with “Error:” prefixed to a
+	descriptive error message before returning a non-zero error code. I have a test suite designed to
+	test the robustness of your program."
+	
+	Your program (raycast) should have this usage pattern:
+		raycast width height input.json output.ppm
+		
+	• Our	format	is	always	a	list	of	objects;	any	other	input	should	result	in	an	error.
+	• The	number	of	objects	in	the	list	will	not	exceed	128;	you	may	allow	more	at	your	
+			option.
+	• The	first	field	in	an	object	will	be	“type”;	you	may	consider	arbitrary	order	for	this	
+			field	at	your	option.
+	• Other	fields	may	appear	in	any	order.
+	• Vectors	will	always	be	given	as	a	list	of	three	numbers.
+	• You	may	assume	that	strings	do	not	have	non-ascii	characters	(e.g.	Unicode)	or	
+			escaped	characters.
+	• You	may	assume	the	file	itself	is	ASCII	and	not	Unicode
+	
 */
 
 double line=1;
@@ -40,6 +65,7 @@ typedef struct{
 	
 }	Object;
 
+// Iterate through a file, a json in this case
 int next_c(FILE* json) {
 	int c = fgetc(json);
 #ifdef DEBUG
@@ -108,31 +134,38 @@ char* next_string(FILE* json) {
 	return strdup(buffer);
 }
 
+// Scans for numerical values
 double next_number(FILE* json) {
 	double value;
 	fscanf(json, "%lf", &value);
-	// Error check this..
 	return value;
 }
 
 double* next_vector(FILE* json) {
+	// Because we have 3 dimensions, or 3 values to store,
+	// We must allocate 3 times as much memory to store the vector
 	double* v = malloc(3*sizeof(double));
 	expect_c(json, '[');
 	skip_ws(json);
+	
 	v[0] = next_number(json);
 	skip_ws(json);
 	expect_c(json, ',');
 	skip_ws(json);
+	
 	v[1] = next_number(json);
 	skip_ws(json);
 	expect_c(json, ',');
 	skip_ws(json);
+	
 	v[2] = next_number(json);
 	skip_ws(json);
 	expect_c(json, ']');
+	
 	return v;
 }
 
+// From the given JSON parser code, modified to actually do something useful
 void read_scene(char* filename, Object* object) {
 	int c;
 
@@ -155,7 +188,7 @@ void read_scene(char* filename, Object* object) {
 	int i = 0;
 
 	while (1) {
-		
+		// Initialization of possible objects in the JSON
 		Camera cam;
 		Sphere sphere;
 		Plane plane;
@@ -178,12 +211,15 @@ void read_scene(char* filename, Object* object) {
 				exit(1);
 			}
 
+			// Iterating through the 'junk' spaces of JSON files
 			skip_ws(json);
 			expect_c(json, ':');
 			skip_ws(json);
-
+			
+			// Store a useful value once we get to it
 			char* value = next_string(json);
 
+			// Here we find the object type fields and store them in the object array
 			if (strcmp(value, "camera") == 0) {
 				object[i].objType=0;
 			} else if (strcmp(value, "sphere") == 0) {
@@ -289,7 +325,7 @@ void read_scene(char* filename, Object* object) {
 	}
 }
 
-
+// Some basic math functions
 static inline double sqr(double num){ return num*num; }
 static inline void normalize(double* v){ double Rd = sqr(v[0])+sqr(v[1])+sqr(v[2]); }
 
@@ -352,35 +388,75 @@ double plane_insxion(double* Ro, double* Rd, double* normal, double* position){
     return -1;
 }
 
+// Error checking function to minimize code in main()
+int errCheck(int args, char *argv[]){
+	
+	// Initial check to see if there are 3 input arguments on launch
+	if ((args != 5) || (strlen(argv[3]) <= 5) || (strlen(argv[4]) <= 4)) {
+		fprintf(stderr, "Error: Program requires usage: 'raycast width height input.json output.ppm'");
+		exit(1);
+	}
 
+	// Check the file extension of input and output files
+	char *extIn;
+	char *extOut;
+	if(strrchr(argv[3],'.') != NULL){
+		extIn = strrchr(argv[3],'.');
+	}
+	if(strrchr(argv[4],'.') != NULL){
+		extOut = strrchr(argv[4],'.');
+	}
+	
+	// Check to see if the inputfile is in .ppm format
+	if(strcmp(extIn, ".json") != 0){
+		printf("Error: Input file not a json");
+		exit(1);
+	}
+	
+	// Check to see if the outputfile is in .ppm format
+	if(strcmp(extOut, ".ppm") != 0){
+		printf("Error: Output file not a PPM");
+		exit(1);
+	}
+
+	return(0);
+}
+
+// Creation function for the image
 void raycast(Object* objects,char* picture_height,char* picture_width,char* output_file){
 
+	// Basic loop varibles
     int j,y,k=0;
+	
+	// Initialization of the camera's center
     double cx=0;
     double cy=0;
 
+	// Goes through object array to find Camera
     for(j=0;j< sizeof(objects);j++){
         if(objects[j].objType == 0){ break; }
     }
 
-
+	// Store the camera position
     double h = objects[j].cam.height;
     double w = objects[j].cam.width;
+	
+	// Store the desired picture height and width
     int m = atoi(picture_height);
     int n = atoi(picture_width);
+	
+	// Get the relative size of each pixel to be drawn
     double pixheight =h/m;
     double pixwidth =w/m;
 
+	// Initialization of the pixel data for the ppm file to be drawn
     PixData p[m*n];
 
     for(int y=m;y>0;y--){
         for (int x=0;x<n;x++){
+			// This will flip the picture as it looks upside down otherwise
             double Ro[3]={0,0,0};
-            double Rd[3] = {
-				cx - (w/2) + pixwidth * (x + 0.5),
-				cy - (h/2) + pixheight * (y + 0.5),
-				1
-            };
+            double Rd[3] = { cx - (w/2) + pixwidth * (x + 0.5), cy - (h/2) + pixheight * (y + 0.5), 1 };
             normalize(Rd);
             double best_t=INFINITY;
             Object object;
@@ -433,38 +509,6 @@ void raycast(Object* objects,char* picture_height,char* picture_width,char* outp
     makeP3PPM(p,atoi(picture_height),atoi(picture_width),output_file);
 }
 
-int errCheck(int args, char *argv[]){
-	
-	// Initial check to see if there are 3 input arguments on launch
-	if ((args != 5) || (strlen(argv[3]) <= 5) || (strlen(argv[4]) <= 4)) {
-		fprintf(stderr, "Error: Program requires usage: 'raycast width height input.json output.ppm'");
-		exit(1);
-	}
-
-	// Check the file extension of input and output files
-	char *extIn;
-	char *extOut;
-	if(strrchr(argv[3],'.') != NULL){
-		extIn = strrchr(argv[3],'.');
-	}
-	if(strrchr(argv[4],'.') != NULL){
-		extOut = strrchr(argv[4],'.');
-	}
-	
-	// Check to see if the inputfile is in .ppm format
-	if(strcmp(extIn, ".json") != 0){
-		printf("Error: Input file not a json");
-		exit(1);
-	}
-	
-	// Check to see if the outputfile is in .ppm format
-	if(strcmp(extOut, ".ppm") != 0){
-		printf("Error: Output file not a PPM");
-		exit(1);
-	}
-
-	return(0);
-}
 
 int main(int args, char** argv) {
 	
