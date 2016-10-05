@@ -467,6 +467,7 @@ int errCheck(int args, char *argv[]){
 }
 
 int main(int args, char** argv) {
+	
 	errCheck(args, argv);
     Object objects[129];
     read_scene(argv[3],objects);
